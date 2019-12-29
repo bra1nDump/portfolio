@@ -25,11 +25,15 @@ class HanoiTowers extends StatefulWidget {
   _HanoiTowersState createState() => _HanoiTowersState();
 }
 
-class _HanoiTowersState extends State<HanoiTowers>
-    with SingleTickerProviderStateMixin {
-  AnimationController _controller;
+enum DiskMovementState { popping, movingToTargetTower, pushing }
 
+class _HanoiTowersState extends State<HanoiTowers> {
   List<List<int>> _towers = [[1, 2, 3], [], []];
+
+  int _diskInMotion;
+  DiskMovementState _diskMovementState;
+  int _fromTower;
+  int _toTower;
 
   final _spacing = 10.0;
   final _diskHeight = 40.0;
@@ -38,24 +42,50 @@ class _HanoiTowersState extends State<HanoiTowers>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this);
-  }
 
-  @override
-  void dispose() {
-    super.dispose();
-    _controller.dispose();
+    Future.delayed(Duration(seconds: 1)).then((_) {
+      _nextMove();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 4 * _spacing + 3 * _diskWidth,
-      height: _spacing + 4 * _diskHeight,
+      height: 4 * _diskHeight + 2 * _spacing,
       child: Stack(
         children: _towersBuild().toList()
       )
     );
+  }
+
+  void _nextMove() {
+    setState(() {
+      _diskInMotion = 3;
+      _diskMovementState = DiskMovementState.popping;
+      _fromTower = 0;
+      _toTower = 2;
+    });
+  }
+
+  void _motionStageCompleted() {
+    setState(() {
+      switch (_diskMovementState) {
+        case DiskMovementState.popping:
+          _diskMovementState = DiskMovementState.movingToTargetTower;
+          break;
+        case DiskMovementState.movingToTargetTower:
+          _diskMovementState = DiskMovementState.pushing;
+          break;
+        case DiskMovementState.pushing:
+          _towers[_toTower].add(_towers[_fromTower].removeLast());
+
+          _diskInMotion = null;
+          _diskMovementState = null;
+          _fromTower = null;
+          _toTower = null;
+      }
+    });
   }
 
   Iterable<Widget> _towersBuild() sync* {
@@ -81,33 +111,63 @@ class _HanoiTowersState extends State<HanoiTowers>
   Iterable<Widget> _towerBuild(int towerIndex) sync* {
     var disks = _towers[towerIndex];
     for (final diskIndex in Iterable.generate(disks.length)) {
-      yield _diskBuild(towerIndex, diskIndex);
+      yield _animatedDiskBuild(towerIndex, diskIndex);
     }
   }
 
-  Widget _diskBuild(int towerIndex, int diskIndex) {
-    final towerId = _towers[towerIndex][diskIndex];
+  Widget _animatedDiskBuild(int towerIndex, int diskIndex) {
+    final diskId = _towers[towerIndex][diskIndex];
+
+    double left;
+    double bottom;
+
+    if (diskId != _diskInMotion) {
+      left = _spacing + towerIndex * (_diskWidth + _spacing);
+      bottom = diskIndex * _diskHeight;
+    } else {
+      switch (_diskMovementState) {
+        case DiskMovementState.popping:
+          left = _spacing + towerIndex * (_diskWidth + _spacing);
+          bottom = 3 * _diskHeight + 2 * _spacing;
+          break;
+        case DiskMovementState.movingToTargetTower:
+          left = _spacing + _toTower * (_diskWidth + _spacing);
+          bottom = 3 * _diskHeight + 2 * _spacing;
+          break;
+        case DiskMovementState.pushing:
+          left = _spacing + _toTower * (_diskWidth + _spacing);
+          bottom = _towers[_toTower].length * _diskHeight + 2 * _spacing;
+      }
+    }
+
+    return AnimatedPositioned(
+      duration: Duration(milliseconds: 500),
+      onEnd: _motionStageCompleted,
+      width: _diskWidth,
+      height: _diskHeight,
+      left: left,
+      bottom: bottom,
+      child: _diskBuild(diskId),
+    );
+  }
+
+  Widget _diskBuild(int disk) {
     var color;
-    switch (towerId) {
+    switch (disk) {
       case 1: color = Colors.amber; break;
       case 2: color = Colors.red; break;
       case 3: color = Colors.green; break;
     }
-    return Positioned(
-      width: _diskWidth,
-      height: _diskHeight,
-      left: _spacing + towerIndex * (_diskWidth + _spacing),
-      bottom: diskIndex * _diskHeight,
-      child: Center(
-        child: Container(
-          width: _diskWidth / towerId,
-          height: _diskHeight,
-          color: color,
-          child: Center(
-            child: Text('$towerId')
-          )
-        ),
-      ),
+
+    return Center(
+      child: Container(
+        width: _diskWidth / disk,
+        height: _diskHeight,
+        color: color,
+        child: Center(
+          child: Text('$disk')
+        )
+      )
     );
   }
 }
