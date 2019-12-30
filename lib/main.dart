@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 void main() => runApp(MyApp());
@@ -25,15 +27,19 @@ class HanoiTowers extends StatefulWidget {
   _HanoiTowersState createState() => _HanoiTowersState();
 }
 
-enum DiskMovementState { popping, movingToTargetTower, pushing }
+enum MoveAnimationState { popping, movingToTargetTower, pushing }
+class Move {
+  final int from;
+  final int to;
+  Move(this.from, this.to);
+}
 
 class _HanoiTowersState extends State<HanoiTowers> {
   List<List<int>> _towers = [[1, 2, 3], [], []];
 
-  int _diskInMotion;
-  DiskMovementState _diskMovementState;
-  int _fromTower;
-  int _toTower;
+  Move _move;
+  MoveAnimationState _moveAnimationState;
+  Completer _moveController;
 
   final _spacing = 10.0;
   final _diskHeight = 40.0;
@@ -43,9 +49,29 @@ class _HanoiTowersState extends State<HanoiTowers> {
   void initState() {
     super.initState();
 
-    Future.delayed(Duration(seconds: 1)).then((_) {
-      _nextMove();
-    });
+    Future.delayed(Duration(seconds: 1), _solve);
+  }
+
+  Iterable<Move> _solution() sync* {
+    final moves = 
+      [
+        [0, 2],
+        [0, 1],
+        [2, 1],
+        [0, 2],
+        [1, 0],
+        [1, 2],
+        [0, 2],
+      ];
+    for (var move in moves) {
+      yield Move(move[0], move[1]);
+    }
+  }
+ 
+  void _solve() async {
+    for (final move in _solution()) {
+      await _startMove(move);
+    }
   }
 
   @override
@@ -59,32 +85,35 @@ class _HanoiTowersState extends State<HanoiTowers> {
     );
   }
 
-  void _nextMove() {
+  Future _startMove(Move move) {
+    var controller = Completer();
     setState(() {
-      _diskInMotion = 3;
-      _diskMovementState = DiskMovementState.popping;
-      _fromTower = 0;
-      _toTower = 2;
+      _moveAnimationState = MoveAnimationState.popping;
+      _move = move;
+      _moveController = controller;
     });
+
+    return controller.future;
   }
 
   void _motionStageCompleted() {
     setState(() {
-      switch (_diskMovementState) {
-        case DiskMovementState.popping:
-          _diskMovementState = DiskMovementState.movingToTargetTower;
+      switch (_moveAnimationState) {
+        case MoveAnimationState.popping:
+          _moveAnimationState = MoveAnimationState.movingToTargetTower;
           break;
-        case DiskMovementState.movingToTargetTower:
-          _diskMovementState = DiskMovementState.pushing;
+        case MoveAnimationState.movingToTargetTower:
+          _moveAnimationState = MoveAnimationState.pushing;
           break;
-        case DiskMovementState.pushing:
-          _towers[_toTower].add(_towers[_fromTower].removeLast());
+        case MoveAnimationState.pushing:
+          _towers[_move.to].add(_towers[_move.from].removeLast());
 
-          _diskInMotion = null;
-          _diskMovementState = null;
-          _fromTower = null;
-          _toTower = null;
+          _moveAnimationState = null;
+          _move = null;
+          _moveController.complete();
+          break;
       }
+
     });
   }
 
@@ -121,26 +150,27 @@ class _HanoiTowersState extends State<HanoiTowers> {
     double left;
     double bottom;
 
-    if (diskId != _diskInMotion) {
+    if (_move == null || diskId != _towers[_move.from].last) {
       left = _spacing + towerIndex * (_diskWidth + _spacing);
       bottom = diskIndex * _diskHeight;
     } else {
-      switch (_diskMovementState) {
-        case DiskMovementState.popping:
+      switch (_moveAnimationState) {
+        case MoveAnimationState.popping:
           left = _spacing + towerIndex * (_diskWidth + _spacing);
           bottom = 3 * _diskHeight + 2 * _spacing;
           break;
-        case DiskMovementState.movingToTargetTower:
-          left = _spacing + _toTower * (_diskWidth + _spacing);
+        case MoveAnimationState.movingToTargetTower:
+          left = _spacing + _move.to * (_diskWidth + _spacing);
           bottom = 3 * _diskHeight + 2 * _spacing;
           break;
-        case DiskMovementState.pushing:
-          left = _spacing + _toTower * (_diskWidth + _spacing);
-          bottom = _towers[_toTower].length * _diskHeight + 2 * _spacing;
+        case MoveAnimationState.pushing:
+          left = _spacing + _move.to * (_diskWidth + _spacing);
+          bottom = _towers[_move.to].length * _diskHeight + 2 * _spacing;
       }
     }
 
     return AnimatedPositioned(
+      key: Key(diskId.toString()),
       duration: Duration(milliseconds: 500),
       onEnd: _motionStageCompleted,
       width: _diskWidth,
