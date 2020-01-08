@@ -23,8 +23,7 @@ class Move {
 }
 
 class _HanoiTowersState extends State<HanoiTowers> {
-  //List<List<int>> _towers = [[1, 2, 3], [], []];
-  List<List<int>> _towers = [[], [], [1, 2, 3]];
+  List<List<int>> _towers = [[1, 2, 3], [], []];
 
   Move _move;
   MoveAnimationState _moveAnimationState;
@@ -44,13 +43,13 @@ class _HanoiTowersState extends State<HanoiTowers> {
   Iterable<Move> _solution() sync* {
     final moves = 
       [
-        // [0, 2],
-        // [0, 1],
-        // [2, 1],
-        // [0, 2],
-        // [1, 0],
-        // [1, 2],
-        // [0, 2],
+        [0, 2],
+        [0, 1],
+        [2, 1],
+        [0, 2],
+        [1, 0],
+        [1, 2],
+        [0, 2],
       ];
     for (var move in moves) {
       yield Move(move[0], move[1]);
