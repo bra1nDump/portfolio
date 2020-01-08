@@ -1,203 +1,216 @@
-import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_icons/flutter_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart';
+
+import 'why_me.dart';
 
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+  
+  void _hireMe() {
+
+  }
+
   @override
   Widget build(BuildContext context) {
+    List<Widget> pitch = [
+      Profile(),
+      WhyMe(),
+      MyCurrentCompany(),
+      ListViewInterview(),
+      MyNewCompany(),
+    ];
+
     return MaterialApp(
       title: 'Kirill Dubovitskiy',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        // primaryColor: Color(0xff9c27b0),
+        primarySwatch: Colors.purple,
+        accentColor: Color(0xff009688),
+
+        cardTheme: CardTheme(
+          margin: EdgeInsets.all(20),
+        )
       ),
       home: Scaffold(
+        appBar: AppBar(
+        ),
         body: Center(
-          child: HanoiTowers()
-        )
+          child: SingleChildScrollView(
+            child: Column(
+              children: <Widget>[
+                for (var point in pitch)
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: point
+                    ),
+                  ),
+              ],
+            )
+          )
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _hireMe,
+          tooltip: 'Hire me',
+          child: Icon(Icons.work),
+        ),
+        bottomSheet: MoreAboutMe(),
       ),
     );
   }
 }
 
-class HanoiTowers extends StatefulWidget {
-  @override
-  _HanoiTowersState createState() => _HanoiTowersState();
-}
+class Profile extends StatelessWidget {
+  const Profile({Key key}) : super(key: key);
 
-enum MoveAnimationState { popping, movingToTargetTower, pushing }
-class Move {
-  final int from;
-  final int to;
-  Move(this.from, this.to);
-}
-
-class _HanoiTowersState extends State<HanoiTowers> {
-  List<List<int>> _towers = [[1, 2, 3], [], []];
-
-  Move _move;
-  MoveAnimationState _moveAnimationState;
-  Completer _moveController;
-
-  final _spacing = 10.0;
-  final _diskHeight = 40.0;
-  final _diskWidth = 100.0;
+  static const _avatar = 'https://pbs.twimg.com/profile_images/1212953242130251784/aIFH_Hkm_400x400.jpg';
 
   @override
-  void initState() {
-    super.initState();
-
-    Future.delayed(Duration(seconds: 1), _solve);
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        const ListTile(
+          leading: CircleAvatar(
+            radius: 20,
+            backgroundImage: NetworkImage(
+              _avatar,
+            ),
+          ),
+          title: Text('Kirill Dubovitskiy'),
+          subtitle: Text('Mobile engineer'),
+        ),
+        ButtonBar(
+          children: <Widget>[
+            FlatButton(
+              onPressed: () {},
+              child: Icon(MaterialCommunityIcons.github_circle)
+            ),
+            FlatButton(
+              onPressed: () {},
+              child: Icon(MaterialCommunityIcons.twitter)
+            ),
+            FlatButton(
+              onPressed: () {},
+              child: Icon(MaterialCommunityIcons.linkedin)
+            ),
+          ],
+        ),
+      ],
+    );
   }
+}
 
-  Iterable<Move> _solution() sync* {
-    final moves = 
-      [
-        [0, 2],
-        [0, 1],
-        [2, 1],
-        [0, 2],
-        [1, 0],
-        [1, 2],
-        [0, 2],
-      ];
-    for (var move in moves) {
-      yield Move(move[0], move[1]);
+class MyCurrentCompany extends StatefulWidget {
+  const MyCurrentCompany({Key key}) : super(key: key);
+
+  @override
+  _MyCurrentCompanyState createState() => _MyCurrentCompanyState();
+}
+
+class _MyCurrentCompanyState extends State<MyCurrentCompany> {
+  Future<List<String>> images = fetchImages();
+
+  static Future<List<String>> fetchImages() async {
+    const endpoint = 'https://simplescraper.io/api/ujc62zH2QffMqQSEcdUM?apikey=Yn51t6IUyJLMV1dM4y3kL7V7KJdJQ33m&offset=0&limit=100';
+
+    var response = await get(endpoint);
+    if (response.statusCode == 200) {
+      List<Map<String, dynamic>> body = ((jsonDecode(response.body) as Map<String, dynamic>)['data'] as List).cast<Map<String, dynamic>>();
+      return body.map((Map<String, dynamic> image) => image['image'] as String).toList();
+    } else {
+      throw 'Error getting padx.com images. Status code: ${response.statusCode}';
     }
   }
- 
-  void _solve() async {
-    for (final move in _solution()) {
-      await _startMove(move);
-    }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Column(
+              children: <Widget>[
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'padx.com',
+                        style: TextStyle(color: Colors.blue),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => launch('https://padx.com/#apps'),
+                      ),
+                    ]
+                  ),
+                ),
+                Text('Feature proposals'),
+                Text('Architecture'),
+                Text('Distribution'),
+              ],
+            ),
+            Expanded(
+              child: _gallery(),
+            )
+          ],
+        )
+      ],
+    );
   }
+
+  Widget _gallery() {
+    return FutureBuilder<List<String>>(
+      future: images,
+      initialData: [],
+      builder: (BuildContext context, AsyncSnapshot<List<String>> snapshot) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: <Widget>[
+              for (var image in snapshot.data) 
+                Image.network(image)
+            ],
+          )
+        );
+      },
+    );
+  }
+}
+
+class ListViewInterview extends StatelessWidget {
+  const ListViewInterview({Key key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 4 * _spacing + 3 * _diskWidth,
-      height: 4 * _diskHeight + 2 * _spacing,
-      child: Stack(
-        children: _towersBuild().toList()
-      )
+      child: Text('List view interview - lets skip the boring stuff'),
     );
   }
+}
 
-  Future _startMove(Move move) {
-    var controller = Completer();
-    setState(() {
-      _moveAnimationState = MoveAnimationState.popping;
-      _move = move;
-      _moveController = controller;
-    });
+class MyNewCompany extends StatelessWidget {
+  const MyNewCompany({Key key}) : super(key: key);
 
-    return controller.future;
-  }
-
-  void _motionStageCompleted() {
-    setState(() {
-      switch (_moveAnimationState) {
-        case MoveAnimationState.popping:
-          _moveAnimationState = MoveAnimationState.movingToTargetTower;
-          break;
-        case MoveAnimationState.movingToTargetTower:
-          _moveAnimationState = MoveAnimationState.pushing;
-          break;
-        case MoveAnimationState.pushing:
-          _towers[_move.to].add(_towers[_move.from].removeLast());
-
-          _moveAnimationState = null;
-          _move = null;
-          _moveController.complete();
-          break;
-      }
-
-    });
-  }
-
-  Iterable<Widget> _towersBuild() sync* {
-    // add poles
-    for (final pole in [0, 1, 2]) {
-      yield Positioned(
-        width: _spacing,
-        height: 3 * _diskHeight + _spacing,
-        left: _spacing / 2 + _diskWidth / 2 + pole * (_diskWidth + _spacing),
-        bottom: 0,
-        child: Container(
-          color: Colors.black
-        )
-      );
-    }
-
-    // add disks
-    for (final towerIndex in Iterable.generate(_towers.length)) {
-      yield* _towerBuild(towerIndex);
-    }
-  }
-
-  Iterable<Widget> _towerBuild(int towerIndex) sync* {
-    var disks = _towers[towerIndex];
-    for (final diskIndex in Iterable.generate(disks.length)) {
-      yield _animatedDiskBuild(towerIndex, diskIndex);
-    }
-  }
-
-  Widget _animatedDiskBuild(int towerIndex, int diskIndex) {
-    final diskId = _towers[towerIndex][diskIndex];
-
-    double left;
-    double bottom;
-
-    if (_move == null || diskId != _towers[_move.from].last) {
-      left = _spacing + towerIndex * (_diskWidth + _spacing);
-      bottom = diskIndex * _diskHeight;
-    } else {
-      switch (_moveAnimationState) {
-        case MoveAnimationState.popping:
-          left = _spacing + towerIndex * (_diskWidth + _spacing);
-          bottom = 3 * _diskHeight + 2 * _spacing;
-          break;
-        case MoveAnimationState.movingToTargetTower:
-          left = _spacing + _move.to * (_diskWidth + _spacing);
-          bottom = 3 * _diskHeight + 2 * _spacing;
-          break;
-        case MoveAnimationState.pushing:
-          left = _spacing + _move.to * (_diskWidth + _spacing);
-          bottom = _towers[_move.to].length * _diskHeight + 2 * _spacing;
-      }
-    }
-
-    return AnimatedPositioned(
-      key: Key(diskId.toString()),
-      duration: Duration(milliseconds: 500),
-      onEnd: _motionStageCompleted,
-      width: _diskWidth,
-      height: _diskHeight,
-      left: left,
-      bottom: bottom,
-      child: _diskBuild(diskId),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: Text('My new company - '),
     );
   }
+}
 
-  Widget _diskBuild(int disk) {
-    var color;
-    switch (disk) {
-      case 1: color = Colors.amber; break;
-      case 2: color = Colors.red; break;
-      case 3: color = Colors.green; break;
-    }
+class MoreAboutMe extends StatelessWidget {
+  const MoreAboutMe({Key key}) : super(key: key);
 
-    return Center(
-      child: Container(
-        width: _diskWidth / disk,
-        height: _diskHeight,
-        color: color,
-        child: Center(
-          child: Text('$disk')
-        )
-      )
+  @override
+  Widget build(BuildContext context) {
+    return BottomSheet(
+      builder: (_) => Text('Advent of code 15'),
+      onClosing: () {},
     );
   }
 }
